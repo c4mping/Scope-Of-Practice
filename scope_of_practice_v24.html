@@ -1,0 +1,1193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scope of Practice - SBCC EMT Simulator</title>
+    <style>
+        :root {
+            --bg-dark: #0f1115; --panel-bg: #1e222b;
+            --primary: #004e92; --accent: #00d2ff;
+            --text: #e2e8f0; --danger: #ff3366;
+            --success: #20bf55; --money: #85bb65;
+            --lp-green: #0f0; --lp-cyan: #0ff; --lp-yellow: #ffea00; --lp-pink: #ff66cc;
+            --partner: #f39c12; --dispatch: #ffaa00;
+        }
+        * { box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background-color: var(--bg-dark); color: var(--text); margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
+        
+        /* Overlays & Modals */
+        #start-overlay, .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 100; display: flex; justify-content: center; align-items: center; }
+        .modal { background: var(--panel-bg); border: 2px solid var(--primary); padding: 25px; border-radius: 10px; max-width: 750px; width: 90%; max-height: 90vh; overflow-y: auto; text-align: center;}
+        .modal h2 { color: var(--accent); margin-top: 0; border-bottom: 1px solid #333; padding-bottom: 10px;}
+        textarea.report-box { width: 100%; height: 180px; background: #fdfdfd; color: #111; border: 2px solid #aaa; padding: 15px; border-radius: 3px; font-family: 'Courier New', Courier, monospace; font-size: 1.1rem; margin-bottom: 15px; resize: none; box-shadow: inset 0 0 10px rgba(0,0,0,0.05); line-height: 1.5;}
+        
+        /* Main Grid */
+        #app { display: grid; grid-template-columns: 380px 360px 1fr; grid-template-rows: 60px minmax(0, 1fr); gap: 15px; width: 1500px; max-width: 98%; height: 95vh; padding: 10px; filter: blur(8px); transition: filter 0.5s; }
+        header { grid-column: 1 / -1; background: linear-gradient(90deg, #001f3f, var(--primary)); border-radius: 8px; display: flex; justify-content: space-between; align-items: center; padding: 0 20px; font-size: 1.4rem; font-weight: bold; border-bottom: 3px solid var(--accent); }
+        .paycheck { color: var(--money); font-family: monospace; font-size: 1.6rem; text-shadow: 0 0 10px rgba(133,187,101,0.4); }
+        .panel { background: var(--panel-bg); border-radius: 8px; border: 1px solid #2d3748; padding: 15px; display: flex; flex-direction: column; overflow: hidden;}
+        
+        /* LifePak 35 Interface */
+        #panel-lp { background: #33383e; border: 4px solid #1a1d21; border-radius: 15px; box-shadow: inset 0 0 20px #000; margin-bottom: 15px; flex-shrink: 0;}
+        .lp-header { text-align: center; color: #888; font-weight: bold; font-size: 1.2rem; margin-bottom: 10px; letter-spacing: 2px;}
+        .lp-screen-bezel { background: #000; padding: 8px; border-radius: 8px; border: 2px solid #555; }
+        .lp-screen { background: #001100; height: 180px; display: flex; font-family: 'Courier New', Courier, monospace; border: 2px solid #000; }
+        .lp-wave-col { flex: 1; border-right: 1px solid #003300; padding: 10px; position: relative; display: flex; flex-direction: column; gap: 15px;}
+        .lp-vit-col { width: 130px; padding: 5px; background: #050505; display: flex; flex-direction: column; justify-content: space-between; border-left: 1px solid #003300;}
+        .vit-box { font-size: 0.75rem; font-weight: bold; }
+        .lp-val { font-size: 1.3rem; display: block; margin-top: 2px; }
+        .c-hr { color: var(--lp-green); } .c-spo2 { color: var(--lp-cyan); } .c-bp { color: #ddd; } .c-rr { color: var(--lp-yellow); } .c-neuro { color: var(--lp-pink); }
+        
+        /* Animated Waveforms */
+        .wave-anim { height: 35px; width: 100%; background-repeat: repeat-x; background-size: 100px 100%; display: none; }
+        #wave-ecg-anim { background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 40"><path d="M 0 20 L 10 20 C 12 15 15 15 17 20 L 22 20 L 25 25 L 28 5 L 32 25 L 35 20 L 45 20 C 50 10 55 10 60 20 L 100 20" fill="none" stroke="%230f0" stroke-width="1.5"/></svg>'); animation: scrollWave 1.5s linear infinite; }
+        #wave-spo2-anim { background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 40"><path d="M 0 35 Q 10 35 15 10 Q 20 20 25 15 Q 35 35 50 35 L 100 35" fill="none" stroke="%230ff" stroke-width="1.5"/></svg>'); animation: scrollWave 2.5s linear infinite; }
+        @keyframes scrollWave { 0% { background-position: 0 0; } 100% { background-position: -100px 0; } }
+
+        /* Buttons */
+        .action-btn { background: #2d3748; border: 1px solid #4a5568; color: white; padding: 10px; border-radius: 5px; cursor: pointer; width: 100%; margin-bottom: 8px; font-size: 0.95rem; text-align: left; transition: 0.2s;}
+        .action-btn:hover { background: var(--primary); border-color: var(--accent); transform: translateX(5px); }
+        .trans-btn { background: #1b4332; text-align: center; font-weight: bold; border-color: var(--success); }
+        .tool-btn { background: #e67e22; color: #fff; font-weight: bold; padding: 8px 15px; border-radius: 5px; cursor: pointer; border: none; font-size: 1rem; margin-left: 15px;}
+        .lp-btn { background: #4a5568; border: 2px solid #2d3748; color: white; padding: 8px; border-radius: 5px; font-weight: bold; cursor: pointer; font-size: 0.85rem;}
+        
+        /* Bags Grid */
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; overflow-y: auto; padding-right: 5px;}
+        .bag-btn { background: #2d3748; color: white; border: none; padding: 8px; border-radius: 5px; cursor: pointer; font-weight: bold; border-top: 3px solid #718096; font-size: 0.85rem;}
+        
+        /* Patient Anatomy Geometric Map (Square but Round) */
+        #body-panel { background: #111; border: 2px solid #333; display: flex; flex-direction: column; opacity: 0.3; transition: 0.5s; position: relative; min-height:0; user-select: none;}
+        .body-title { background: #222; padding: 5px; font-weight: bold; color: var(--accent); border-bottom: 1px solid #444; flex-shrink:0; text-align:center;}
+        .view-toggles { display: flex; gap: 2px; padding: 5px; background: #1a1a1a; justify-content: center; flex-shrink: 0; border-bottom: 1px solid #333;}
+        .view-btn { background: #333; color: #aaa; border: 1px solid #555; padding: 5px; font-size: 0.75rem; cursor: pointer; border-radius: 3px; flex: 1;}
+        .view-btn.active { background: var(--primary); color: #fff; font-weight: bold; border-color: var(--accent);}
+        
+        #human-css { position: relative; width: 220px; height: 480px; margin: 15px auto; flex-grow: 1;}
+        
+        .css-zone { position: absolute; background: rgba(255,255,255,0.05); border: 2px solid #555; display: flex; justify-content: center; align-items: center; color: #aaa; font-size: 0.75rem; font-weight: bold; transition: 0.2s; cursor: pointer; text-shadow: 1px 1px 2px #000; text-align: center; flex-direction: column; overflow: hidden;}
+        .css-zone:hover { background: rgba(102, 252, 241, 0.2); border-color: var(--accent); color: #fff; }
+        
+        .css-zone.selectable { border-color: var(--accent); border-style: dashed; background: rgba(102, 252, 241, 0.05); animation: pulseZone 1.5s infinite; color:#fff;}
+        .css-zone.assessed { border-color: #fff; color: #fff; background: rgba(255,255,255,0.15); }
+        .injury-marker { font-size: 1.5rem; filter: drop-shadow(0 0 5px rgba(255,0,0,0.8)); position: absolute; z-index: 5;}
+        @keyframes pulseZone { 0% { box-shadow: 0 0 0px var(--accent); } 50% { box-shadow: 0 0 10px var(--accent); } 100% { box-shadow: 0 0 0px var(--accent); } }
+
+        /* Geometric Layout Placement (Pill Shapes / Rounded Rects) */
+        .z-head { top: 0; left: 75px; width: 70px; height: 80px; border-radius: 40px; }
+        .z-nose { top: 35px; left: 100px; width: 20px; height: 15px; border-radius: 10px; font-size: 0.5rem; border-color: #444; z-index: 2;}
+        .z-mouth { top: 55px; left: 95px; width: 30px; height: 15px; border-radius: 10px; font-size: 0.5rem; border-color: #444; z-index: 2;}
+        .z-neck { top: 85px; left: 95px; width: 30px; height: 20px; border-radius: 5px; }
+        .z-chest { top: 110px; left: 60px; width: 100px; height: 80px; border-radius: 20px; }
+        .z-abd { top: 195px; left: 65px; width: 90px; height: 70px; border-radius: 15px; }
+        .z-pelvis { top: 270px; left: 65px; width: 90px; height: 40px; border-radius: 10px 10px 30px 30px; }
+        
+        .z-rarm { top: 115px; left: 25px; width: 30px; height: 130px; border-radius: 15px; } /* Patient's Right */
+        .z-larm { top: 115px; left: 165px; width: 30px; height: 130px; border-radius: 15px; } /* Patient's Left */
+        
+        .z-rthigh { top: 315px; left: 65px; width: 40px; height: 80px; border-radius: 15px; }
+        .z-lthigh { top: 315px; left: 115px; width: 40px; height: 80px; border-radius: 15px; }
+        
+        .z-rleg { top: 400px; left: 65px; width: 35px; height: 80px; border-radius: 15px; }
+        .z-lleg { top: 400px; left: 120px; width: 35px; height: 80px; border-radius: 15px; }
+
+        /* Interaction Station */
+        #interaction-station { background: #1a1a1a; border-top: 2px solid var(--accent); padding: 15px; display: none; text-align: center; flex-shrink:0;}
+        .active-tool-display { display: inline-block; background: var(--panel-bg); border: 2px solid var(--success); color: white; padding: 10px 20px; border-radius: 8px; font-size: 1.2rem; font-weight: bold; box-shadow: 0 0 15px rgba(32,191,85,0.4); animation: pulse 1.5s infinite;}
+
+        /* Right Column (Isolated Scrolling Panels) */
+        #right-column { display: flex; flex-direction: column; gap: 15px; height: 100%; min-height: 0; }
+        .right-box { background: var(--panel-bg); border-radius: 8px; border: 1px solid #2d3748; padding: 15px; display: flex; flex-direction: column; flex: 1; min-height: 0; }
+        .box-title { margin-top: 0; color: var(--accent); font-size: 1.1rem; border-bottom: 1px solid #444; padding-bottom: 5px; margin-bottom: 10px; flex-shrink: 0;}
+        .box-content { flex-grow: 1; overflow-y: auto; padding-right: 5px; min-height: 0;}
+
+        /* Logs & Notepad specific */
+        #log-view { font-size: 0.95rem; line-height: 1.4; }
+        .log-entry { margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #2d3748; }
+        .sys-info { color: var(--accent); } .sys-good { color: var(--success); } .sys-bad { color: var(--danger); }
+        .sys-partner { color: var(--partner); font-weight: bold; }
+        .sys-dispatch { color: var(--dispatch); font-style: italic; font-weight: 500;}
+
+        .note-toggle { display: flex; justify-content: flex-end; margin-bottom: 5px; gap: 5px; flex-shrink:0;}
+        .note-toggle-btn { background: #333; color: #aaa; border: 1px solid #555; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-size: 0.8rem;}
+        .note-toggle-btn.active { background: var(--success); color: #000; border-color: var(--success); font-weight: bold;}
+        #notepad-textarea { flex-grow: 1; background: #111; color: #fff; font-family: monospace; font-size: 1.05rem; border: 1px solid #555; padding: 10px; resize: none; border-radius: 5px; width: 100%; min-height: 0;}
+
+        /* Micro-Limb Placement Modal */
+        #limb-container { width: 140px; height: 380px; background: linear-gradient(to right, #eab676, #d9a05b); margin: 20px auto; position: relative; border-radius: 70px 70px 40px 40px; cursor: crosshair; box-shadow: inset 0 0 20px rgba(0,0,0,0.5), 0 0 15px rgba(0,0,0,0.8); display: flex; flex-direction: column;}
+        .m-zone { flex: 1; border-bottom: 1px dashed rgba(0,0,0,0.2); display: flex; justify-content: center; align-items: center; color: rgba(0,0,0,0.5); font-weight: bold; transition: 0.2s; }
+        .m-zone:hover { background: rgba(255,255,255,0.2); color: #000; }
+        
+        #micro-wound { width: 25px; height: 25px; background: var(--danger); border-radius: 50%; position: absolute; left: 55px; display: none; box-shadow: 0 0 15px var(--danger); pointer-events: none;}
+        #micro-joint { width: 100%; height: 0; border-top: 4px dashed rgba(0,0,0,0.4); position: absolute; top: 50%; pointer-events: none;}
+        
+        /* Minigame Steps */
+        .step-btn.done { background: var(--success); color: #000; pointer-events: none; border-color: #000; }
+        .step-btn.error { background: var(--danger); color: #fff; animation: shake 0.4s; }
+        @keyframes shake { 0%, 100% {transform: translateX(0);} 25% {transform: translateX(-5px);} 75% {transform: translateX(5px);} }
+        
+        /* Forms & Toolkit */
+        .form-row { display: flex; gap: 10px; margin-bottom: 12px; align-items: center;}
+        .form-row input, .form-row select { background: #111; color: #fff; border: 1px solid var(--primary); padding: 10px; border-radius: 4px; flex-grow: 1; font-size: 1rem;}
+        .form-label { font-weight: bold; width: 100px; color: var(--accent); text-align: left;}
+        #toolkit-layout { display: flex; gap: 20px; height: 500px; text-align: left;}
+        #toolkit-sidebar { width: 35%; overflow-y: auto; border-right: 1px solid #444; padding-right: 10px; }
+        #toolkit-content { width: 65%; overflow-y: auto; padding-left: 10px; }
+        .toolkit-icon { font-size: 4rem; text-align: center; margin: 10px 0; background: #111; padding: 20px; border-radius: 10px; border: 1px solid #333;}
+        
+        /* News List */
+        .news-headline { background: #111; border-left: 4px solid var(--accent); padding: 10px; margin-bottom: 10px; font-size: 1.1rem; }
+    </style>
+</head>
+<body>
+
+<div id="start-overlay">
+    <div class="modal">
+        <h2>Scope of Practice: SBCC EMT Simulator</h2>
+        <div style="color:#ddd; line-height: 1.6; font-size: 1.1rem; margin-bottom: 20px; text-align:left;">
+            <p>Congratulations. You passed your NREMT and graduated from the <b>Santa Barbara City College (SBCC) EMT Academy</b>.</p>
+            <p>Today is your first ride-out on Medic 26. Your preceptor is Paramedic Miller. There's a rumor of a dangerous new synthetic drug hitting the streets. Keep your head on a swivel.</p>
+            <p><b>Rules of the Rig:</b></p>
+            <ul style="color: #ccc;">
+                <li><b>Order Matters:</b> All SBCC Skill Checklists <b>must</b> be completed in chronological sequence.</li>
+                <li><b>Anatomy Views:</b> Use the buttons to switch the body map between Organs, Bones, and Burn percentages.</li>
+                <li><b>Click-to-Place:</b> Once you prep a tool, click the exact anatomical zone to apply it.</li>
+            </ul>
+        </div>
+        <button class="action-btn trans-btn" onclick="initAudioAndShowModes()" style="text-align: center; font-size: 1.2rem; padding: 15px;">START SHIFT</button>
+    </div>
+</div>
+
+<div id="mode-selector" class="modal-overlay" style="display:none;">
+    <div class="modal">
+        <h2 style="text-align:center;">Select Dispatch Mode</h2>
+        <button class="action-btn trans-btn" onclick="startCampaign()" style="font-size:1.1rem; padding:15px;">🚑 Campaign Mode (Full Shift - 13 Calls)</button>
+        <hr style="border-color: #333; margin: 20px 0;">
+        <h3 style="color:#aaa;">Targeted Scenarios</h3>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+            <button class="action-btn scenario-btn" onclick="startScenario(0)">1. Chest Pain (STEMI)</button>
+            <button class="action-btn scenario-btn" onclick="startScenario(1)">2. Skater Impalement</button>
+            <button class="action-btn scenario-btn" onclick="startScenario(2)">3. Unresponsive (Opiate OD)</button>
+            <button class="action-btn scenario-btn" onclick="startScenario(3)">4. Anaphylaxis (Bee Sting)</button>
+            <button class="action-btn scenario-btn" onclick="startScenario(4)">5. Altered / Hypoglycemia</button>
+            <button class="action-btn scenario-btn" onclick="startScenario(5)">6. Toxic Ingestion</button>
+            <button class="action-btn scenario-btn" onclick="startScenario(6)">7. Pulmonary Edema (CHF)</button>
+            <button class="action-btn scenario-btn" onclick="startScenario(7)">8. Pediatric Asthma</button>
+            <button class="action-btn scenario-btn" onclick="startScenario(8)">9. House Fire (Burns/Airway)</button>
+            <button class="action-btn scenario-btn" onclick="startScenario(9)">10. Suspected Stroke (CVA)</button>
+            <button class="action-btn scenario-btn" onclick="startScenario(10)">11. Traumatic Amputation</button>
+            <button class="action-btn scenario-btn" onclick="startScenario(11)">12. Active Seizure</button>
+            <button class="action-btn scenario-btn" onclick="startScenario(12)">13. Hypothermia / Exposure</button>
+        </div>
+    </div>
+</div>
+
+<div id="toolkit-modal" class="modal-overlay" style="display:none;">
+    <div class="modal" style="max-width: 850px;">
+        <h2>🧰 SBCC Study Tool Kit</h2>
+        <div id="toolkit-layout">
+            <div id="toolkit-sidebar"></div>
+            <div id="toolkit-content">
+                <p style="color:#aaa; text-align:center; margin-top:150px;">Select a skill from the left to view its SBCC protocol checklist, indications, and target anatomy.</p>
+            </div>
+        </div>
+        <br><button class="action-btn trans-btn" onclick="closeModal('toolkit-modal')">Close Tool Kit</button>
+    </div>
+</div>
+
+<div id="news-modal" class="modal-overlay" style="display:none;">
+    <div class="modal">
+        <h2>📰 Santa Barbara Local News</h2>
+        <p style="color:#aaa;">Headlines following your recent calls.</p>
+        <div id="news-feed" style="text-align: left; max-height: 400px; overflow-y: auto; padding-right: 10px;">
+            <p style="text-align:center; color:#555;">No news yet. Complete calls in Campaign Mode to generate headlines.</p>
+        </div>
+        <br><button class="action-btn trans-btn" onclick="closeModal('news-modal')">Close News</button>
+    </div>
+</div>
+
+<div id="micro-target-modal" class="modal-overlay" style="display:none;">
+    <div class="modal" style="max-width: 400px; text-align:center;">
+        <h2 id="micro-title">Apply Treatment</h2>
+        <p id="micro-desc" style="color:#aaa;">Click the exact location on the limb to apply.</p>
+        <div id="limb-container">
+            <div class="m-zone" onclick="evaluateMicroPlacement(15)">Proximal (High)</div>
+            <div class="m-zone" onclick="evaluateMicroPlacement(35)">Proximal (Low)</div>
+            <div class="m-zone" onclick="evaluateMicroPlacement(50)" style="flex: 0.5;">Joint</div>
+            <div class="m-zone" onclick="evaluateMicroPlacement(65)">Distal (High)</div>
+            <div class="m-zone" onclick="evaluateMicroPlacement(85)">Distal (Low)</div>
+            <div id="micro-joint"></div>
+            <div id="micro-wound"></div>
+        </div>
+        <br><button class="action-btn" onclick="closeModal('micro-target-modal')">Cancel</button>
+    </div>
+</div>
+
+<div id="app">
+    <header>
+        <div style="display:flex; align-items:center;">
+            🚑 AMR Medic 26 (SB)
+            <button class="tool-btn" onclick="openToolkit()">🧰 Tool Kit</button>
+            <button class="tool-btn" style="background:#8e44ad;" onclick="document.getElementById('news-modal').style.display='flex'">📰 Local News</button>
+            <button class="tool-btn" style="background:#333;" onclick="returnToMenu()">☰ Menu</button>
+        </div>
+        <div id="paycheck" class="paycheck">Paycheck: $200.00</div>
+    </header>
+
+    <div style="display: flex; flex-direction: column; min-height: 0; gap: 15px;">
+        <div class="panel" id="panel-lp">
+            <div class="lp-header">LIFEPAK 35</div>
+            <div class="lp-screen-bezel">
+                <div class="lp-screen">
+                    <div class="lp-wave-col">
+                        <div class="c-hr">
+                            <div style="margin-bottom:2px;">ECG II</div>
+                            <span id="wave-ecg-text">LEADS OFF</span>
+                            <div id="wave-ecg-anim" class="wave-anim"></div>
+                        </div>
+                        <div class="c-spo2" style="margin-top:10px;">
+                            <div style="margin-bottom:2px;">SpO2</div>
+                            <span id="wave-spo2-text">PROBE OFF</span>
+                            <div id="wave-spo2-anim" class="wave-anim"></div>
+                        </div>
+                    </div>
+                    <div class="lp-vit-col">
+                        <div class="vit-box c-hr">HR <span class="lp-val" id="lp-hr">---</span></div>
+                        <div class="vit-box c-spo2">SpO2 <span class="lp-val" id="lp-spo2">---</span></div>
+                        <div class="vit-box c-bp">NIBP <span class="lp-val" id="lp-bp">---</span></div>
+                        <div class="vit-box c-rr">RR <span class="lp-val" id="lp-rr">---</span></div>
+                        <div class="vit-box c-neuro" style="border-top:1px solid #333; padding-top:2px;">
+                            BGL: <span id="lp-bgl">---</span><br>
+                            GCS: <span id="lp-gcs">--</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="grid-2" style="margin-top: 10px;">
+                <button class="lp-btn" onclick="lpAttach('leads')">4-Lead</button>
+                <button class="lp-btn" onclick="lpAttach('spo2')">SpO2</button>
+                <button class="lp-btn" onclick="lpAction('nibp')">NIBP</button>
+                <button class="lp-btn" onclick="lpAction('12lead')" style="background:#800; border-color:#500;">12-Lead</button>
+            </div>
+        </div>
+
+        <div class="panel" style="flex-grow: 1; min-height: 0;">
+            <h3 style="margin-top:0; color:var(--accent); flex-shrink:0;">Medical Bags & Tools</h3>
+            <div class="grid-2">
+                <button onclick="doAction('Glucometer')" class="bag-btn" style="border-color:#fff;">🩸 Glucometer</button>
+                <button onclick="openBag('O2')" class="bag-btn btn-airway">💨 Oxygen</button>
+                <button onclick="openBag('Adjuncts')" class="bag-btn btn-airway">🧰 Airway</button>
+                <button onclick="openBag('Circulation')" class="bag-btn btn-circ">🩸 Trauma</button>
+                <button onclick="openBag('Splints')" class="bag-btn btn-splint">🦴 Splints</button>
+                <button onclick="openBag('Medications')" class="bag-btn btn-meds">💊 BLS Meds</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="panel" id="body-panel" style="padding: 0;">
+        <div class="body-title">Patient Anatomy</div>
+        
+        <div class="view-toggles">
+            <button class="view-btn active" id="vbtn-standard" onclick="switchAnatomyView('standard')">Standard</button>
+            <button class="view-btn" id="vbtn-burns" onclick="switchAnatomyView('ruleOf9')">Rule of 9s</button>
+            <button class="view-btn" id="vbtn-organs" onclick="switchAnatomyView('organs')">Organs</button>
+            <button class="view-btn" id="vbtn-bones" onclick="switchAnatomyView('bones')">Bones</button>
+        </div>
+
+        <div id="human-css" onclick="handleBodyMapClick(event)">
+            <div class="css-zone z-head" id="z-head"><span class="lbl">Head</span></div>
+            <div class="css-zone z-nose" id="z-nose"><span class="lbl" style="font-size:0.5rem;">Nose</span></div>
+            <div class="css-zone z-mouth" id="z-mouth"><span class="lbl" style="font-size:0.5rem;">Mouth</span></div>
+            <div class="css-zone z-neck" id="z-neck"><span class="lbl" style="font-size:0.6rem;">Neck</span></div>
+            <div class="css-zone z-chest" id="z-chest"><span class="lbl">Chest</span></div>
+            <div class="css-zone z-abd" id="z-abd"><span class="lbl">Abd</span></div>
+            <div class="css-zone z-pelvis" id="z-pelvis"><span class="lbl">Pelvis</span></div>
+            
+            <div class="css-zone z-rarm" id="z-rarm"><span class="lbl">R Arm</span></div>
+            <div class="css-zone z-larm" id="z-larm"><span class="lbl">L Arm</span></div>
+            
+            <div class="css-zone z-rthigh" id="z-rthigh"><span class="lbl">R Thigh</span></div>
+            <div class="css-zone z-lthigh" id="z-lthigh"><span class="lbl">L Thigh</span></div>
+            
+            <div class="css-zone z-rleg" id="z-rleg"><span class="lbl">R Leg</span></div>
+            <div class="css-zone z-lleg" id="z-lleg"><span class="lbl">L Leg</span></div>
+        </div>
+        
+        <div id="interaction-station">
+            <div style="color:var(--accent); font-weight:bold; margin-bottom:5px;" id="interaction-instructions">Checklist Complete. Click Body Map to Apply.</div>
+            <div class="active-tool-display" id="active-tool-display">Item</div>
+        </div>
+    </div>
+
+    <div id="right-column">
+        <div class="right-box" style="flex: 1.5;">
+            <div class="box-title">Protocols & Actions</div>
+            <div class="box-content" id="right-panel"></div>
+        </div>
+        
+        <div class="right-box" style="flex: 1.5;">
+            <div class="box-title">Scene Log</div>
+            <div class="box-content" id="log-view"></div>
+        </div>
+
+        <div class="right-box" style="flex: 1; display:flex; flex-direction:column;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-shrink:0; margin-bottom:5px; border-bottom: 1px solid #444; padding-bottom:5px;">
+                <div class="box-title" style="border:none; margin:0; padding:0;">Notepad</div>
+                <div class="note-toggle">
+                    <button id="btn-auto" class="note-toggle-btn active" onclick="setNoteMode('auto')">Auto</button>
+                    <button id="btn-manual" class="note-toggle-btn" onclick="setNoteMode('manual')">Manual</button>
+                </div>
+            </div>
+            <textarea id="notepad-textarea" readonly></textarea>
+        </div>
+    </div>
+</div>
+
+<div id="dialogue-modal" class="modal-overlay" style="display:none;">
+    <div class="modal">
+        <h2>Patient Interview (SAMPLE & OPQRST)</h2>
+        <p id="dialogue-response" style="background:#111; padding:15px; border-radius:5px; font-style:italic; font-size:1.1rem; border-left:4px solid var(--accent);">"..."</p>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+            <button class="action-btn" onclick="askQuestion('S')">Symptoms</button>
+            <button class="action-btn" onclick="askQuestion('O')">Onset</button>
+            <button class="action-btn" onclick="askQuestion('A')">Allergies</button>
+            <button class="action-btn" onclick="askQuestion('P_provoke')">Provocation</button>
+            <button class="action-btn" onclick="askQuestion('M')">Medications</button>
+            <button class="action-btn" onclick="askQuestion('Q')">Quality</button>
+            <button class="action-btn" onclick="askQuestion('P')">Past Med Hx</button>
+            <button class="action-btn" onclick="askQuestion('R')">Region/Radiation</button>
+            <button class="action-btn" onclick="askQuestion('L')">Last Oral Intake</button>
+            <button class="action-btn" onclick="askQuestion('S_severe')">Severity (1-10)</button>
+            <button class="action-btn" onclick="askQuestion('E')">Events Leading Up</button>
+            <button class="action-btn" onclick="askQuestion('T')">Time (Duration)</button>
+        </div>
+        <br><button class="action-btn trans-btn" onclick="closeModal('dialogue-modal')">End Interview</button>
+    </div>
+</div>
+
+<div id="report-modal" class="modal-overlay" style="display:none;">
+    <div class="modal">
+        <h2>Radio Patch (Cottage ER)</h2>
+        <p style="color:#aaa; margin-bottom:20px;">Complete the standard fill-in formula to contact the receiving facility.</p>
+        <div class="form-row"><div class="form-label">Age:</div><input type="number" id="ho-age" placeholder="e.g. 68"></div>
+        <div class="form-row"><div class="form-label">Sex:</div><select id="ho-sex"><option>Male</option><option>Female</option></select></div>
+        <div class="form-row"><div class="form-label">C/C:</div><input type="text" id="ho-cc" placeholder="Chief Complaint"></div>
+        <div class="form-row"><div class="form-label">Tx Given:</div><input type="text" id="ho-tx" placeholder="Interventions"></div>
+        <div class="form-row"><div class="form-label">ETA (min):</div><input type="number" id="ho-eta" placeholder="10"></div>
+        <br><button class="action-btn trans-btn" onclick="submitRadioReport()">Transmit Radio Patch</button>
+        <button class="action-btn" onclick="closeModal('report-modal')">Cancel</button>
+    </div>
+</div>
+
+<div id="epcr-modal" class="modal-overlay" style="display:none;">
+    <div class="modal" style="max-width: 700px;">
+        <h2>ePCR: Patient Narrative</h2>
+        <p style="color:#aaa;">You have transferred care. Complete your formal incident report narrative before clearing.</p>
+        <textarea id="epcr-notes" class="report-box" placeholder="Arrived on scene to find... Patient states... Vitals... Interventions..."></textarea>
+        <button class="action-btn trans-btn" onclick="submitEPCR()">Submit ePCR & Get Debrief</button>
+    </div>
+</div>
+
+<div id="debrief-modal" class="modal-overlay" style="display:none;">
+    <div class="modal">
+        <h2>Miller's Debrief</h2>
+        <div id="debrief-text" style="color:var(--partner); padding: 15px; background: rgba(0,0,0,0.4); border-left: 4px solid var(--partner); font-size:1.1rem; line-height:1.5;"></div>
+        <br><button class="action-btn trans-btn" onclick="closeDebrief()">Acknowledge & Continue</button>
+    </div>
+</div>
+
+<script>
+    // --- STATE & AUDIO ---
+    let money = 200;
+    let lpState = { leads: false, spo2: false, nibp: false, neuro: false, bgl: false };
+    let playMode = 'campaign'; 
+    let ptIndex = 0;
+    let bodyMapMode = 'view'; // view, assess, place
+    let audioCtx = null;
+    let newsHeadlines = [];
+    
+    // --- ANATOMY VIEWS ---
+    const anatomyLabels = {
+        standard: { head: "Head", nose: "Nose", mouth: "Mouth", neck: "Neck", chest: "Chest", abd: "Abd", pelvis: "Pelvis", rarm: "R Arm", larm: "L Arm", rthigh: "R Thigh", lthigh: "L Thigh", rleg: "R Leg", lleg: "L Leg" },
+        ruleOf9: { head: "9%", nose: "", mouth: "", neck: "", chest: "9%", abd: "9%", pelvis: "1%", rarm: "4.5%", larm: "4.5%", rthigh: "9%", lthigh: "9%", rleg: "9%", lleg: "9%" },
+        organs: { head: "Brain", nose: "Airway", mouth: "Airway", neck: "Trachea", chest: "Heart/Lungs", abd: "Digestive", pelvis: "Bladder", rarm: "Vessels", larm: "Vessels", rthigh: "Fem. Art", lthigh: "Fem. Art", rleg: "Vessels", lleg: "Vessels" },
+        bones: { head: "Cranium", nose: "Nasal", mouth: "Mandible", neck: "C-Spine", chest: "Ribs", abd: "L-Spine", pelvis: "Pelvis", rarm: "Arm Bones", larm: "Arm Bones", rthigh: "Femur", lthigh: "Femur", rleg: "Tib/Fib", lleg: "Tib/Fib" }
+    };
+
+    function switchAnatomyView(viewName) {
+        document.querySelectorAll('.view-btn').forEach(btn => btn.classList.remove('active'));
+        if(viewName === 'standard') document.getElementById('vbtn-standard').classList.add('active');
+        if(viewName === 'ruleOf9') document.getElementById('vbtn-burns').classList.add('active');
+        if(viewName === 'organs') document.getElementById('vbtn-organs').classList.add('active');
+        if(viewName === 'bones') document.getElementById('vbtn-bones').classList.add('active');
+
+        let labels = anatomyLabels[viewName];
+        for(let zone in labels) {
+            let el = document.getElementById('z-' + zone);
+            if(el) {
+                let span = el.querySelector('.lbl');
+                if(span) span.innerText = labels[zone];
+            }
+        }
+    }
+
+    // --- NOTEPAD SYSTEM ---
+    let noteMode = 'auto'; 
+    let autoNoteData = [];
+    
+    function setNoteMode(mode) {
+        noteMode = mode;
+        const ta = document.getElementById('notepad-textarea');
+        if(mode === 'auto') {
+            document.getElementById('btn-auto').classList.add('active');
+            document.getElementById('btn-manual').classList.remove('active');
+            ta.readOnly = true;
+            syncAutoNotes();
+        } else {
+            document.getElementById('btn-manual').classList.add('active');
+            document.getElementById('btn-auto').classList.remove('active');
+            ta.readOnly = false;
+        }
+    }
+    
+    function appendToAutoNotes(str) {
+        if(!autoNoteData.includes(str)) {
+            autoNoteData.push(str);
+            if(noteMode === 'auto') syncAutoNotes();
+        }
+    }
+    
+    function syncAutoNotes() {
+        let ta = document.getElementById('notepad-textarea');
+        ta.value = autoNoteData.join('\n');
+        ta.scrollTop = ta.scrollHeight;
+    }
+
+    // --- AUDIO INIT ---
+    function initAudioAndShowModes() {
+        try { 
+            const AC = window.AudioContext || window.webkitAudioContext; 
+            if(AC && !audioCtx) { audioCtx = new AC(); }
+            if(audioCtx && audioCtx.state === 'suspended') { audioCtx.resume(); }
+        } catch (e) { console.log("Audio disabled."); }
+        
+        document.getElementById('start-overlay').style.display = 'none'; 
+        document.getElementById('mode-selector').style.display = 'flex';
+        playSound('success');
+    }
+    
+    function playTone(freq, type, duration, vol=0.1) {
+        if(!audioCtx || audioCtx.state !== 'running') return;
+        try { const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain(); osc.type = type; osc.frequency.value = freq; osc.connect(gain); gain.connect(audioCtx.destination); gain.gain.setValueAtTime(vol, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + duration); osc.start(audioCtx.currentTime); osc.stop(audioCtx.currentTime + duration); } catch (e) { }
+    }
+    
+    function playNoise(duration, filterType, freq) {
+        if(!audioCtx || audioCtx.state !== 'running') return;
+        try {
+            let bufferSize = audioCtx.sampleRate * duration;
+            let buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            let data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+            let noise = audioCtx.createBufferSource(); noise.buffer = buffer;
+            let filter = audioCtx.createBiquadFilter(); filter.type = filterType; filter.frequency.value = freq;
+            let gain = audioCtx.createGain(); gain.gain.setValueAtTime(0.1, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+            noise.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
+            noise.start();
+        } catch (e) { }
+    }
+    
+    function playSiren() {
+        if(!audioCtx || audioCtx.state !== 'running') return;
+        try {
+            const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+            osc.frequency.linearRampToValueAtTime(1200, audioCtx.currentTime + 1);
+            osc.frequency.linearRampToValueAtTime(600, audioCtx.currentTime + 2);
+            osc.frequency.linearRampToValueAtTime(1200, audioCtx.currentTime + 3);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime); gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 3);
+            osc.start(); osc.stop(audioCtx.currentTime + 3);
+        } catch (e) { }
+    }
+
+    function playSound(type) {
+        if(type === 'success') { playTone(600, 'sine', 0.1); setTimeout(()=>playTone(800, 'sine', 0.2), 100); }
+        else if (type === 'error') { playTone(150, 'sawtooth', 0.4, 0.2); }
+        else if (type === 'beep') { playTone(1000, 'sine', 0.1, 0.05); }
+        else if (type === 'spray') { playNoise(0.3, 'highpass', 5000); }
+        else if (type === 'velcro') { playNoise(0.4, 'bandpass', 1000); }
+        else if (type === 'breath') { playNoise(1.5, 'lowpass', 800); }
+        else if (type === 'snap') { playTone(2000, 'square', 0.05, 0.1); }
+    }
+
+    // --- TOOLKIT & MENUS ---
+    function openToolkit() {
+        document.getElementById('toolkit-modal').style.display = 'flex';
+        let sidebar = document.getElementById('toolkit-sidebar');
+        sidebar.innerHTML = '';
+        for(let key in skillDb) {
+            let btn = document.createElement('button'); btn.className = 'action-btn'; btn.style.fontSize = '0.9rem'; btn.innerText = skillDb[key].name;
+            btn.onclick = () => {
+                let s = skillDb[key];
+                document.getElementById('toolkit-content').innerHTML = `<h2 style="margin-top:0;">${s.name}</h2><div class="toolkit-icon">${s.icon}</div><h4 style="color:var(--accent);">SBCC Checklist Steps:</h4><ul>${s.steps.map(st=>`<li>${st}</li>`).join('')}</ul><p style="color:#aaa;"><b>Target Anatomy:</b> ${s.target.toUpperCase()}</p>`;
+            };
+            sidebar.appendChild(btn);
+        }
+    }
+    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+    function returnToMenu() {
+        document.getElementById('app').style.filter = 'blur(8px)';
+        document.querySelectorAll('.modal-overlay').forEach(el => el.style.display = 'none');
+        document.getElementById('mode-selector').style.display = 'flex';
+    }
+
+    function updateNewsFeed() {
+        let feed = document.getElementById('news-feed');
+        if(newsHeadlines.length === 0) {
+            feed.innerHTML = `<p style="text-align:center; color:#555;">No news yet. Complete calls in Campaign Mode to generate headlines.</p>`;
+        } else {
+            feed.innerHTML = '';
+            // Display reverse chronologically
+            for(let i = newsHeadlines.length - 1; i >= 0; i--) {
+                feed.innerHTML += `<div class="news-headline">${newsHeadlines[i]}</div>`;
+            }
+        }
+    }
+
+    // --- GAME FLOW ---
+    function startCampaign() { playMode = 'campaign'; ptIndex = 0; newsHeadlines = []; launchGame(); }
+    function startScenario(index) { playMode = 'scenario'; ptIndex = index; launchGame(); }
+    function launchGame() {
+        document.getElementById('mode-selector').style.display = 'none'; 
+        document.getElementById('app').style.filter = 'none';
+        log("Miller: 'Alright rookie, eyes up. We're running Rig 26 today. Don't embarrass the uniform.'", "sys-partner"); 
+        setTimeout(loadPatient, 2000);
+    }
+
+    function log(msg, type = "sys-info") {
+        const logEl = document.getElementById('log-view'); 
+        logEl.innerHTML += `<div class="log-entry ${type}">${msg}</div>`; 
+        logEl.scrollTop = logEl.scrollHeight;
+    }
+    function adjustMoney(amount, reason) {
+        money += amount; document.getElementById('paycheck').innerText = `Paycheck: $${money.toFixed(2)}`;
+        let color = amount > 0 ? "sys-good" : "sys-bad"; log(`${amount > 0 ? '+' : ''}$${amount}: ${reason}`, color);
+        if(amount > 0) playSound('success'); else playSound('error');
+    }
+
+    // --- LIFEPAK & VITALS ---
+    function updateLP() {
+        let v = patients[ptIndex].vitals;
+        document.getElementById('lp-hr').innerText = lpState.leads ? v.hr : '---';
+        
+        if(lpState.leads) {
+            document.getElementById('wave-ecg-text').style.display = 'none';
+            document.getElementById('wave-ecg-anim').style.display = 'block';
+        } else {
+            document.getElementById('wave-ecg-text').style.display = 'block';
+            document.getElementById('wave-ecg-anim').style.display = 'none';
+        }
+        
+        document.getElementById('lp-spo2').innerText = lpState.spo2 ? v.spo2 : '---';
+        if(lpState.spo2) {
+            document.getElementById('wave-spo2-text').style.display = 'none';
+            document.getElementById('wave-spo2-anim').style.display = 'block';
+        } else {
+            document.getElementById('wave-spo2-text').style.display = 'block';
+            document.getElementById('wave-spo2-anim').style.display = 'none';
+        }
+        
+        document.getElementById('lp-bp').innerText = lpState.nibp ? v.bp : '---';
+        document.getElementById('lp-rr').innerText = lpState.leads ? v.rr : '---'; 
+        document.getElementById('lp-gcs').innerText = lpState.neuro ? v.gcs : '--';
+        document.getElementById('lp-bgl').innerText = lpState.bgl ? v.bgl : '---';
+    }
+    function lpAttach(type) {
+        playSound('beep'); if(!patients[ptIndex].flags.penman) { adjustMoney(-10, "Miller: 'BSI, Scene Safety! Protect yourself first!'"); return; }
+        if(type === 'leads') { lpState.leads = true; log("LifePak: 4-Lead attached.", "sys-good"); }
+        if(type === 'spo2') { lpState.spo2 = true; log("LifePak: SpO2 probe attached.", "sys-good"); }
+        updateLP();
+    }
+    function lpAction(type) {
+        playSound('beep'); if(!patients[ptIndex].flags.penman) { adjustMoney(-10, "Miller: 'GLOVES!'"); return; }
+        let v = patients[ptIndex].vitals;
+        if(type === 'nibp') { document.getElementById('lp-bp').innerText = "CALC"; setTimeout(() => { lpState.nibp = true; updateLP(); patients[ptIndex].flags.mv = true; appendToAutoNotes(`Vitals: HR ${v.hr}, BP ${v.bp}, RR ${v.rr}, SpO2 ${v.spo2}%`); playSound('beep'); }, 2000); }
+        if(type === '12lead') { if(!lpState.leads) return adjustMoney(-10, "Need 4-lead first."); setTimeout(() => { patients[ptIndex].evalAction('12lead'); playSound('beep'); }, 2000); }
+    }
+
+    // --- INTERFACE PANELS ---
+    function showAssessment() {
+        if(patients[ptIndex].setupOverride) { patients[ptIndex].setupOverride(); return; }
+        document.getElementById('right-panel').innerHTML = `
+            <button onclick="doAction('PENMAN')" class="action-btn">1. Scene Size-Up (PENMAN / BSI)</button>
+            <button onclick="doAction('ABCs')" class="action-btn">2. Primary Assessment (ABCs)</button>
+            <button onclick="doAction('Expose')" class="action-btn" style="background:#5c2a18; border-color:#d35400;">✂️ Expose Patient</button>
+            <button onclick="doAction('Neuro')" class="action-btn" style="background:#4a235a; border-color:#8e44ad;">🧠 Neuro Exam (GCS)</button>
+            <button onclick="startTraumaAssessment()" class="action-btn" style="background:#641e16; border-color:#e74c3c;">🦴 Rapid Trauma Assessment</button>
+            <button onclick="openDialogue()" class="action-btn dialogue-btn">💬 Interview Patient (SAMPLE/OPQRST)</button>
+            <br><br><button onclick="openReportModal()" class="action-btn trans-btn">📻 Contact Receiving Facility</button>
+        `;
+    }
+
+    function openBag(bagName) {
+        let html = `<div class="grid-2">`;
+        if(bagName === 'O2') ['nc', 'nrb', 'bvm', 'cpap'].forEach(k => html += `<button class="action-btn" onclick="openSkill('${k}')">${skillDb[k].name}</button>`);
+        else if(bagName === 'Adjuncts') ['suction', 'opa', 'npa'].forEach(k => html += `<button class="action-btn" onclick="openSkill('${k}')">${skillDb[k].name}</button>`);
+        else if (bagName === 'Circulation') ['direct_pressure', 'tq', 'impaled'].forEach(k => html += `<button class="action-btn" onclick="openSkill('${k}')">${skillDb[k].name}</button>`);
+        else if (bagName === 'Splints') ['soft_splint', 'hard_splint', 'traction_splint', 'sling', 'ccollar', 'backboard'].forEach(k => html += `<button class="action-btn" onclick="openSkill('${k}')">${skillDb[k].name}</button>`);
+        else if (bagName === 'Medications') ['aspirin', 'nitro', 'epi', 'narcan', 'albuterol', 'charcoal', 'glucose'].forEach(k => html += `<button class="action-btn" onclick="openSkill('${k}')">${skillDb[k].name}</button>`);
+        html += `</div><br><button class="action-btn trans-btn" onclick="showAssessment()">Back to Assessment</button>`;
+        document.getElementById('right-panel').innerHTML = html;
+    }
+
+    // --- BODY MAP (CSS Geometric) & MACRO CLICK-TO-PLACE ---
+    function startTraumaAssessment() {
+        if(!patients[ptIndex].flags.abcs) { adjustMoney(-10, "Miller: 'ABCs before secondary assessment!'"); return; }
+        bodyMapMode = 'assess';
+        log("Rapid Trauma Assessment started. Click body zones on the map to palpate for DCAP-BTLS.", "sys-info");
+        document.getElementById('body-panel').style.borderColor = "var(--danger)";
+        document.querySelectorAll('.css-zone').forEach(z => z.classList.add('selectable'));
+        document.getElementById('right-panel').innerHTML = `<button class="action-btn trans-btn" onclick="endTraumaAssessment()">Done Assessing</button>`;
+    }
+
+    function handleBodyMapClick(e) {
+        let zoneEl = e.target.closest('.css-zone');
+        if(!zoneEl) return;
+        let zoneId = zoneEl.id.replace('z-', '');
+        
+        if (bodyMapMode === 'place' && activeSkillForPlacement) {
+            let skill = skillDb[activeSkillForPlacement];
+            
+            if(skill.micro && ['larm','rarm','lleg','rleg','lthigh','rthigh'].includes(zoneId)) {
+                openMicroModal(activeSkillForPlacement, zoneId);
+            } else {
+                if(skill.sound) playSound(skill.sound);
+                patients[ptIndex].evalAction('place_' + activeSkillForPlacement + '_on_' + zoneId);
+                completePlacement();
+            }
+        } else if (bodyMapMode === 'assess') {
+            patients[ptIndex].evalAction('trauma_' + zoneId);
+        }
+    }
+
+    function endTraumaAssessment() {
+        bodyMapMode = 'view';
+        document.getElementById('body-panel').style.borderColor = "#333";
+        document.querySelectorAll('.css-zone').forEach(z => z.classList.remove('selectable'));
+        showAssessment();
+    }
+
+    function markInjury(zoneId, emoji) {
+        let el = document.getElementById('z-' + zoneId);
+        if(el && !el.classList.contains('assessed')) {
+            el.classList.add('assessed');
+            let marker = document.createElement("div");
+            marker.className = "injury-marker";
+            marker.innerText = emoji;
+            el.appendChild(marker);
+        }
+    }
+
+    // --- SKILLS DB (Accurate to SBCC Protocol) ---
+    const skillDb = {
+        nc: { name: "Nasal Cannula", icon: "👃", steps: ["Cracks valve to blow off dust", "Assembles regulator", "Opens tank valve & checks pressure", "Checks for leaks", "Adjusts flow 1-6 L/min", "Places on face snugly"], target: "nose", micro: false, sound: 'breath' },
+        nrb: { name: "Non-Rebreather", icon: "😷", steps: ["Attaches mask to port", "Turns on O2 and prefills bag", "Adjusts flow at least 10 L/min", "Attaches to face snugly"], target: "mouth", micro: false, sound: 'breath' },
+        bvm: { name: "Bag-Valve Mask", icon: "🫁", steps: ["Opens airway", "Suctions if needed", "Inserts OPA", "Ventilates 10-12/min (Adult)", "Attaches to O2"], target: "mouth", micro: false, sound: 'breath' },
+        cpap: { name: "CPAP", icon: "🤿", steps: ["Evaluates indications (pulmonary edema/resp failure)", "Evaluates contraindications (BP<90)", "Set flow to 15 L/min", "Attach mask snugly"], target: "mouth", micro: false, sound: 'breath' },
+        suction: { name: "Suctioning", icon: "🌪️", steps: ["Rolls patient to lateral recumbent", "Turns on device/ensures suction", "Measures rigid catheter (corner of mouth to earlobe)", "Applies suction < 15s (adult)"], target: "mouth", micro: false, sound: 'spray' },
+        opa: { name: "OPA", icon: "🪈", steps: ["Verbalizes contraindications (gag reflex)", "Measures corner of mouth to earlobe/angle of jaw", "Inserts sideways and rotates 90 or upside down and rotates 180", "Rests on lips"], target: "mouth", micro: false },
+        npa: { name: "NPA", icon: "🪈", steps: ["Verbalizes contraindications (basilar skull fx)", "Measures tip of nose to earlobe", "Applies lube", "Inserts with bevel towards septum"], target: "nose", micro: false },
+        direct_pressure: { name: "Trauma Dressing", icon: "🩹", steps: ["Expose wound", "Apply sterile dressing", "Firm pressure"], target: "any_limb", micro: true }, 
+        tq: { name: "Tourniquet", icon: "🛑", steps: ["Identify severe bleed", "Tighten windlass until bleed stops", "Note time"], target: "any_limb", instr: "Click the limb to open precise placement window.", micro: true, sound: 'velcro' },
+        impaled: { name: "Impaled Object", icon: "🗡️", steps: ["Expose wound", "Manually stabilize object", "Apply bulky dressings around object", "Secure in place"], target: "any_impaled", micro: false },
+        soft_splint: { name: "Soft Splint", icon: "🧻", steps: ["Check PMS", "Apply splint", "Secure", "Recheck PMS"], target: "any_limb", micro: true, sound: 'velcro' },
+        hard_splint: { name: "Hard Splint", icon: "🪵", steps: ["Check PMS", "Measure splint", "Secure above/below joint", "Recheck PMS"], target: "any_limb", micro: true, sound: 'velcro' },
+        traction_splint: { name: "Traction Splint", icon: "⚙️", steps: ["Check PMS", "Apply manual traction", "Secure ankle hitch", "Apply mechanical traction", "Recheck PMS"], target: "lthigh", micro: false, sound: 'snap' },
+        sling: { name: "Sling & Swathe", icon: "🧣", steps: ["Check PMS", "Support arm", "Apply sling", "Secure swathe", "Recheck PMS"], target: "any_arm", micro: false },
+        ccollar: { name: "C-Collar", icon: "🦼", steps: ["Manual c-spine", "Measure neck", "Apply collar"], target: "neck", micro: false, sound: 'velcro' },
+        backboard: { name: "Backboard", icon: "🛹", steps: ["Maintain c-spine", "Apply c-collar", "Log roll & inspect back", "Secure torso then head"], target: "chest", micro: false, sound: 'snap' },
+        epi: { name: "EpiPen", icon: "💉", steps: ["Checks name, exp, concentration", "Exposes and cleanses lateral thigh", "Removes safety cap", "Press and hold 10 seconds", "Massage site 5-10 secs"], target: "any_limb", micro: true, sound: 'snap' },
+        narcan: { name: "Narcan IN", icon: "👃💦", steps: ["Check indications", "Assemble MAD syringe", "1mg per nostril"], target: "nose", micro: false, sound: 'spray' },
+        aspirin: { name: "Aspirin", icon: "💊", steps: ["Confirm new onset chest pain", "Verify no bleeding disorders/ulcers", "Administer 324mg PO", "Instruct to chew before swallowing"], target: "mouth", micro: false },
+        nitro: { name: "Nitro Assist", icon: "👅", steps: ["Confirm CP", "Systolic BP > 100", "No ED meds", "0.4mg SL"], target: "mouth", micro: false },
+        albuterol: { name: "Albuterol MDI", icon: "😮‍💨", steps: ["Confirm script", "Shake", "Patient inhales deeply"], target: "mouth", micro: false, sound: 'spray' },
+        charcoal: { name: "Activated Charcoal", icon: "⬛", steps: ["Ingestion < 1 hr", "Intact airway/alert LOC", "Shake vigorously", "25-50g PO (drink unassisted)"], target: "mouth", micro: false },
+        glucose: { name: "Oral Glucose 15g", icon: "🍯", steps: ["Confirm actual/suspected hypoglycemia", "Verify intact gag reflex / ability to swallow", "Deposit 15g paste between cheek and gum"], target: "mouth", micro: false }
+    };
+
+    let currentSkillKey = null; let currentSkillStep = 0;
+    let activeMicroTool = null; let activeMacroZone = null;
+    let activeSkillForPlacement = null;
+
+    function openSkill(key) {
+        currentSkillKey = key; currentSkillStep = 0; let skill = skillDb[key];
+        let scrambled = [...skill.steps].sort(() => Math.random() - 0.5); 
+        let html = `<p style="color:var(--accent);"><b>${skill.name} Checklist <br><span style="font-size:0.75rem; color:#aaa;">(MUST BE COMPLETED IN EXACT ORDER)</span></b></p>`;
+        scrambled.forEach(step => { html += `<button class="action-btn step-btn" onclick="checkStep(this, '${step.replace(/'/g, "\\'")}')">${step}</button>`; });
+        html += `<br><br><button class="action-btn trans-btn" onclick="showAssessment()">Cancel</button>`;
+        document.getElementById('right-panel').innerHTML = html;
+        document.getElementById('interaction-station').style.display = 'none';
+        activeSkillForPlacement = null;
+    }
+
+    function checkStep(btn, stepStr) {
+        let skill = skillDb[currentSkillKey];
+        if(stepStr === skill.steps[currentSkillStep]) {
+            playSound('success'); btn.classList.add('done'); btn.innerText = stepStr + " ✓"; btn.disabled = true; currentSkillStep++;
+            if(currentSkillStep >= skill.steps.length) {
+                setTimeout(() => { activatePlacement(currentSkillKey); }, 500);
+            }
+        } else {
+            playSound('error'); adjustMoney(-15, `Miller: 'NO! That's out of order! Sequence matters!'`);
+            btn.classList.add('error'); setTimeout(() => openSkill(currentSkillKey), 800); 
+        }
+    }
+
+    function activatePlacement(skillKey) {
+        activeSkillForPlacement = skillKey;
+        let skill = skillDb[skillKey];
+        document.getElementById('right-panel').innerHTML = `<p style="color:var(--success); font-weight:bold;">Checklist complete. Apply the item to the Body Map.</p><button class="action-btn trans-btn" onclick="showAssessment()">Cancel</button>`;
+        document.getElementById('interaction-instructions').innerText = skill.instr || "Click the correct anatomical location on the map.";
+        document.getElementById('active-tool-display').innerHTML = `${skill.icon} ${skill.name}`;
+        document.getElementById('interaction-station').style.display = 'block';
+        
+        bodyMapMode = 'place';
+        document.querySelectorAll('.css-zone').forEach(z => z.classList.add('selectable'));
+    }
+
+    function completePlacement() {
+        document.getElementById('interaction-station').style.display = 'none';
+        document.querySelectorAll('.css-zone').forEach(z => z.classList.remove('selectable'));
+        activeSkillForPlacement = null;
+        bodyMapMode = 'view';
+        showAssessment();
+    }
+
+    // --- MICRO-ANATOMY CLICK-TO-PLACE ---
+    function openMicroModal(skillKey, macroZoneId) {
+        activeMicroTool = skillKey; activeMacroZone = macroZoneId;
+        let skill = skillDb[skillKey];
+        document.getElementById('micro-title').innerText = `Apply ${skill.name}`;
+        
+        if (skillKey === 'tq') document.getElementById('micro-desc').innerText = "Click 2-3 inches ABOVE the bleeding site, avoiding joints.";
+        else if (skillKey === 'epi') document.getElementById('micro-desc').innerText = "Click the lateral (outer) thigh.";
+        else document.getElementById('micro-desc').innerText = "Click directly over the injury.";
+        
+        let wound = document.getElementById('micro-wound');
+        wound.style.display = 'none'; 
+
+        let pt = patients[ptIndex];
+        if (pt.flags.exposed && pt.injuries && pt.injuries[macroZoneId] && pt.injuries[macroZoneId].y) {
+            wound.style.display = 'block';
+            wound.style.top = pt.injuries[macroZoneId].y + '%';
+        }
+        document.getElementById('micro-target-modal').style.display = 'flex';
+    }
+
+    function evaluateMicroPlacement(yPercent) {
+        document.getElementById('micro-target-modal').style.display = 'none';
+        let pt = patients[ptIndex];
+        let tool = activeMicroTool;
+        let zone = activeMacroZone;
+        let injury = pt.injuries ? pt.injuries[zone] : null;
+
+        let skill = skillDb[tool];
+        if(skill && skill.sound) playSound(skill.sound);
+
+        if (tool === 'tq') {
+            if (!injury || !injury.isArterial) {
+                adjustMoney(-25, "Miller: 'You just TQ'd a limb without an arterial bleed!'");
+            } else {
+                let wY = injury.y;
+                if (yPercent > wY) { adjustMoney(-25, "Miller: 'TQ placed BELOW the wound! It needs to go ABOVE!'"); }
+                else if (yPercent === 50) { adjustMoney(-30, "Miller: 'You placed the TQ directly on the joint!'"); }
+                else if (yPercent > wY - 10) { adjustMoney(-20, "Miller: 'TQ is too close to the wound. Go 2-3 inches higher.'"); }
+                else {
+                    adjustMoney(40, "Tourniquet placed high and tight. Bleeding controlled.");
+                    pt.flags.tq = true;
+                    appendToAutoNotes(`Tx: Tourniquet applied to ${zone.toUpperCase()}`);
+                }
+            }
+        }
+        else if (tool === 'direct_pressure') {
+            if (!injury) { adjustMoney(-15, "Miller: 'There's no wound there!'"); }
+            else if (Math.abs(yPercent - injury.y) > 20) { adjustMoney(-15, "Miller: 'You missed the wound entirely!'"); }
+            else {
+                if (injury.isArterial) { log("Dressing applied, but blood soaks right through. You need a Tourniquet!", "sys-bad"); } 
+                else { adjustMoney(20, "Dressing applied directly over wound."); pt.flags.dressing = true; appendToAutoNotes(`Tx: Trauma dressing to ${zone.toUpperCase()}`); }
+            }
+        }
+        else if (tool === 'epi') {
+            if (zone !== 'lthigh' && zone !== 'rthigh') { adjustMoney(-25, "Miller: 'Epi goes in the lateral THIGH!'"); }
+            else {
+                adjustMoney(30, "EpiPen administered correctly.");
+                pt.flags.epi = true; pt.vitals.rr = "20"; pt.vitals.bp = "110/70"; updateLP();
+                appendToAutoNotes(`Tx: EpiPen 0.3mg IM`);
+            }
+        }
+        else if (tool === 'hard_splint' || tool === 'soft_splint') {
+            if (!injury) { adjustMoney(-15, "Miller: 'Why are we splinting a healthy limb?'"); }
+            else { adjustMoney(20, "Splint secured. PMS reassessed and intact."); pt.flags.splint = true; appendToAutoNotes(`Tx: ${tool.replace('_',' ')} to ${zone.toUpperCase()}`); }
+        }
+        
+        if(pt.evalAction) pt.evalAction('micro_done'); 
+        completePlacement();
+    }
+
+    // --- ACTIONS ---
+    function doAction(action) {
+        if(action === 'Glucometer') {
+            if(!patients[ptIndex].flags.penman) return adjustMoney(-10, "BSI First!");
+            log("Glucometer: Checking BGL...", "sys-info");
+            setTimeout(() => { lpState.bgl = true; updateLP(); log(`BGL is ${patients[ptIndex].vitals.bgl} mg/dL.`, "sys-good"); appendToAutoNotes(`BGL: ${patients[ptIndex].vitals.bgl}`); playSound('beep'); }, 1500);
+            return;
+        }
+        patients[ptIndex].evalAction(action); 
+    }
+
+    function openDialogue() {
+        if(!patients[ptIndex].flags.abcs) { adjustMoney(-10, "Miller: 'Check ABCs before the life story!'"); return; }
+        document.getElementById('dialogue-modal').style.display = 'flex';
+        document.getElementById('dialogue-response').innerText = `"..."`;
+    }
+    function askQuestion(q) {
+        let response = patients[ptIndex].dialogue[q] || "No response.";
+        document.getElementById('dialogue-response').innerHTML = `<b>${q}:</b> "${response}"`;
+        appendToAutoNotes(`${q}: ${response}`);
+    }
+
+    // --- REPORTS ---
+    function openReportModal() {
+        document.getElementById('ho-age').value = ""; document.getElementById('ho-cc').value = ""; 
+        document.getElementById('ho-tx').value = ""; document.getElementById('ho-eta').value = "";
+        document.getElementById('report-modal').style.display = 'flex';
+    }
+    function submitRadioReport() {
+        let a = document.getElementById('ho-age').value, c = document.getElementById('ho-cc').value;
+        if(!a || !c) { playSound('error'); return alert("Fill out the radio patch fully!"); }
+        closeModal('report-modal');
+        log(`<strong>Radio:</strong> "Cottage ER, Medic 26. En route with a ${a} y/o, C/C: ${c}. ETA ${document.getElementById('ho-eta').value} mins."`, "sys-info");
+        setTimeout(() => { 
+            document.getElementById('epcr-notes').value = document.getElementById('notepad-textarea').value; 
+            document.getElementById('epcr-modal').style.display = 'flex'; 
+        }, 1500);
+    }
+    function submitEPCR() {
+        if(document.getElementById('epcr-notes').value.trim().length < 20) { playSound('error'); return alert("Write a proper SOAP note narrative!"); }
+        closeModal('epcr-modal'); log(`<strong>ePCR Filed.</strong>`, "sys-good");
+        
+        document.getElementById('debrief-text').innerText = "Miller: " + patients[ptIndex].debrief;
+        document.getElementById('debrief-modal').style.display = 'flex';
+    }
+    function closeDebrief() {
+        document.getElementById('debrief-modal').style.display = 'none';
+        
+        // Push to local news if campaign
+        if(playMode === 'campaign') {
+            let headlines = [
+                "Tourists Stunned: Local Hero EMTs Save Woman from Massive Heart Attack on Stearns Wharf",
+                "Skater's Point Horror: Teen Impaled, Bystanders Blame New Street Drug 'Blue Ghost'",
+                "Isla Vista Epidemic: AMR Responds to Spike in Overdoses as 'Blue Ghost' Floods IV",
+                "Beachgoers Flee: Aggressive Bee Swarm at East Beach Sends Woman to Emergency Room",
+                "State Street Scare: Diabetic Emergency Handled Swiftly by Local Medics",
+                "Midterm Madness: UCSB Student Treated for Toxic Ingestion",
+                "Late Night Crisis: Paramedics Rush to Local Nursing Home for Cardiac Emergency",
+                "Youth Soccer Match Halted by Severe Asthma Attack, Child Recovering",
+                "EXPLOSION: Suspected 'Blue Ghost' Trap House Goes Up in Flames, One Badly Burned",
+                "Time is Brain: Swift AMR Response Saves Elderly Stroke Victim",
+                "Gruesome Industrial Accident: Worker Amputates Arm, 'Blue Ghost' Found at Scene",
+                "Public Emergency: Woman Seizes in Public, Medics Secure Airway",
+                "Atmospheric River Toll: First Responders Treat Unhoused Man for Severe Hypothermia"
+            ];
+            newsHeadlines.push(`<strong>Shift ${ptIndex + 1}:</strong> ${headlines[ptIndex]}`);
+            updateNewsFeed();
+        }
+
+        if(playMode === 'scenario') { log("<h2>SCENARIO COMPLETE</h2>", "sys-good"); setTimeout(returnToMenu, 1500); } 
+        else {
+            ptIndex++;
+            if(ptIndex < patients.length) loadPatient();
+            else log("<h2>END OF SHIFT</h2>", "sys-good");
+        }
+    }
+
+    // --- PATIENTS DB (13 Total with Campaign Narrative) ---
+    const patients = [
+        { 
+            desc: "68 y/o F, Chest Pain.", dispatch: "Respond Code 3 to Stearns Wharf. 68 y/o female, crushing chest pain.", quip: "Montecito housewife and clam chowder, a lethal combination. Let's go.",
+            vitals: { hr: "110", bp: "150/90", rr: "22", spo2: "92", gcs: "15", bgl: "110" }, flags: {}, injuries: {},
+            dialogue: { "S": "Oh darling, it's dreadful! Like a grand piano is sitting right on my sternum!", "O": "It started right as I was yelling at my gardener.", "A": "Penicillin.", "P_provoke": "Breathing makes it worse.", "M": "Nitro, Lipitor.", "Q": "Crushing, heavy.", "P": "Heart attack 5 years ago.", "R": "It radiates down my left arm.", "L": "Clam chowder at the restaurant.", "S_severe": "9/10!", "E": "Walking on the pier.", "T": "30 minutes ago." },
+            setup: () => { log("<strong>SCENE:</strong> Margaret is sitting on a bench on the wharf, pale and diaphoretic.", "sys-info"); },
+            evalAction: function(a) {
+                let p = this;
+                if(a === 'PENMAN') { p.flags.penman = true; adjustMoney(10, "BSI on."); return; }
+                if(!p.flags.penman) { adjustMoney(-20, "Miller: 'GLOVES!'"); p.flags.penman=true; }
+                if(a === 'ABCs') { p.flags.abcs = true; log("Airway intact, rapid breathing.", "sys-info"); return; }
+                if(a === 'Expose') { p.flags.exposed = true; log("Exposed for 12-lead.", "sys-info"); return; }
+                if(a === 'Neuro') { lpState.neuro = true; updateLP(); log("GCS 15.", "sys-good"); appendToAutoNotes("Neuro: GCS 15"); return; }
+                if(a.startsWith('trauma_')) { log("No trauma.", "sys-info"); return; }
+                
+                if(a === 'place_aspirin_on_mouth') { p.flags.asa = true; adjustMoney(25, "Aspirin 324mg chewed."); appendToAutoNotes("Tx: Aspirin 324mg"); }
+                if(a === 'place_nitro_on_mouth') { 
+                    if(!p.flags.mv) { adjustMoney(-50, "Miller: 'STOP! Nitro without BP is lethal!'"); }
+                    else { p.flags.nitro = true; adjustMoney(25, "Assisted with Nitro SL."); p.vitals.bp="130/80"; updateLP(); appendToAutoNotes("Tx: Nitro 0.4mg SL");}
+                }
+                if(a === '12lead') { adjustMoney(15, "12-Lead shows STEMI!"); p.flags.ecg12 = true; appendToAutoNotes("ECG: STEMI"); }
+            },
+            debrief: "'Good job. As an EMT, you can assist a patient with their prescribed Nitro, but you MUST get a blood pressure first. Nitro is a vasodilator and will bottom out a hypotensive patient.'"
+        },
+        {
+            desc: "19 y/o M, Skater Impalement.", dispatch: "Respond Code 3 to Skater's Point. Fall with severe hemorrhage and impalement.", quip: "Another kid trying to be Tony Hawk. Grab the trauma bag.",
+            vitals: { hr: "135", bp: "88/60", rr: "28", spo2: "98", gcs: "14", bgl: "95" }, flags: {}, 
+            injuries: { lleg: { desc: "Severe arterial spurting bleed.", y: 85, isArterial: true }, abd: { desc: "Piece of rebar impaled deeply into RUQ." } },
+            dialogue: { "S": "Bro! My leg! And my stomach! It burns!", "O": "Just happened man!", "A": "No.", "P_provoke": "Moving sucks!", "M": "No.", "Q": "Sharp, tearing pain.", "P": "I broke my arm once.", "R": "Just the leg and stomach.", "L": "Two Monster energies.", "S_severe": "10/10!", "E": "Tried to grind the rail. I saw a blue ghost right before I fell man!", "T": "5 minutes." },
+            setup: () => { log("<strong>SCENE:</strong> Kyle is screaming on the concrete. Blood pooling near left leg.", "sys-info"); },
+            evalAction: function(a) {
+                let p = this;
+                if(a === 'PENMAN') { p.flags.penman = true; adjustMoney(10, "BSI on."); return; }
+                if(!p.flags.penman) { adjustMoney(-20, "Miller: 'GLOVES!'"); p.flags.penman=true; }
+                if(a === 'ABCs') { p.flags.abcs = true; log("Massive arterial bleed on Left Leg.", "sys-bad"); return; }
+                if(a === 'Expose') { p.flags.exposed = true; log("Clothing cut. Impaled rebar found in Abd!", "sys-bad"); markInjury('abd','🗡️'); markInjury('lleg','🩸'); appendToAutoNotes("Findings: Arterial bleed L-leg, impaled object Abd."); return; }
+                if(a === 'Neuro') { lpState.neuro = true; updateLP(); log("GCS 14 (Confused).", "sys-info"); return; }
+                if(a.startsWith('trauma_')) {
+                    let z = a.replace('trauma_','');
+                    if(!p.flags.exposed && (z==='abd'||z==='lleg')) { adjustMoney(-10, "Expose first!"); return; }
+                    if(p.injuries[z]) { adjustMoney(10, `Found: ${p.injuries[z].desc}`); p.flags['found_'+z]=true; } else log("Clear.", "sys-info");
+                    return;
+                }
+                
+                if(a === 'place_impaled_on_abd') { p.flags.impaled = true; adjustMoney(40, "Bulky dressings applied around rebar to stabilize it. Object NOT removed."); markInjury('abd','🩹'); appendToAutoNotes("Tx: Impaled object stabilized.");}
+                else if(a.startsWith('place_impaled_on_')) { adjustMoney(-25, "That's not where the impaled object is."); }
+            },
+            debrief: "'On major trauma, EXPOSE the patient immediately. A tourniquet always goes 2-3 inches proximal to the wound (avoiding the joint). And never pull out an impaled object; stabilize it in place so it stops moving.'"
+        },
+        {
+            desc: "22 y/o F, Unresponsive OD.", dispatch: "Respond Code 3 to Isla Vista. 22-year-old female, unresponsive.", quip: "Isla Vista on a Friday. Prepare for the worst, dispatch says it might be a bad batch.",
+            vitals: { hr: "50", bp: "90/50", rr: "4", spo2: "78", gcs: "3", bgl: "105" }, flags: {}, injuries: {},
+            dialogue: { "S": "Friend: 'She just passed out.'", "O": "Friend: 'A few minutes ago.'", "A": "Friend: 'Unknown.'", "P_provoke": "N/A", "M": "Friend: 'I think she took some Roxy. The guy called it Blue Ghost.'", "Q": "N/A", "P": "Friend: 'None.'", "R": "N/A", "L": "Friend: 'Beer.'", "S_severe": "N/A", "E": "Friend: 'We were at a party.'", "T": "N/A" },
+            setup: () => { log("<br><strong>SCENE:</strong> Chloe is turning blue on a couch. Pinpoint pupils.", "sys-info"); },
+            evalAction: function(a) {
+                let p = this;
+                if(a === 'PENMAN') { p.flags.penman = true; adjustMoney(10, "BSI on."); return; }
+                if(a === 'ABCs') { p.flags.abcs = true; log("Respirations 4/min, shallow. Cyanosis. Needs airway management."); appendToAutoNotes("Findings: Hypoventilation, pinpoint pupils."); return; }
+                if(a === 'Expose') { p.flags.exposed = true; return; }
+                if(a === 'Neuro') { lpState.neuro = true; updateLP(); log("GCS 3.", "sys-bad"); return; }
+                if(a.startsWith('trauma_')) { return log("Clear.", "sys-info"); }
+                
+                if(a === 'place_opa_on_mouth') { p.flags.opa = true; adjustMoney(15, "OPA inserted, airway secured."); appendToAutoNotes("Tx: OPA placed.");}
+                if(a === 'place_bvm_on_mouth') { p.flags.bvm = true; adjustMoney(25, "BVM bagging."); p.vitals.spo2="92"; updateLP(); appendToAutoNotes("Tx: BVM ventilations.");}
+                if(a === 'place_narcan_on_nose') { p.flags.narcan = true; adjustMoney(30, "Narcan IN given. Reversing CNS depression."); p.vitals.rr="14"; p.vitals.spo2="98"; updateLP(); appendToAutoNotes("Tx: Narcan 2mg IN.");}
+            },
+            debrief: "'Pinpoint pupils and severe respiratory depression scream opiate overdose. Secure the airway with an adjunct and BVM first, then push the Narcan to reverse the respiratory drive suppression. Second time tonight someone mentioned Blue Ghost...'"
+        },
+        {
+            desc: "45 y/o Female, Anaphylaxis.", dispatch: "Respond Code 3 to East Beach. 45-year-old female in severe respiratory distress.", quip: "Bees at East Beach. Better than a shark attack, barely.",
+            vitals: { hr: "125", bp: "88/50", rr: "28", spo2: "89", gcs: "15", bgl: "98" }, flags: {}, injuries: {},
+            dialogue: { "S": "(Wheezing) Can't... breathe...", "O": "Just... now...", "A": "Bees...", "P_provoke": "Breathing...", "M": "EpiPen... in purse...", "Q": "Throat... tight...", "P": "Asthma...", "R": "N/A", "L": "Water...", "S_severe": "Bad...", "E": "Got stung...", "T": "10 mins." },
+            setup: () => { log("<br><strong>SCENE:</strong> Maria is gasping on the sand, visible facial hives.", "sys-info"); },
+            evalAction: function(a) {
+                let p = this;
+                if(a === 'PENMAN') { p.flags.penman = true; adjustMoney(10, "BSI on."); return; }
+                if(a === 'ABCs') { p.flags.abcs = true; log("Severe wheezing, stridor."); appendToAutoNotes("Findings: Stridor, wheezing, hives."); return; }
+                if(a === 'Expose') { p.flags.exposed = true; log("Hives noted on chest and abdomen.", "sys-info"); return; }
+                if(a === 'Neuro') { lpState.neuro = true; updateLP(); log("GCS 15.", "sys-good"); return; }
+                if(a.startsWith('trauma_')) { log("No trauma.", "sys-info"); return; }
+            },
+            debrief: "'Wheezing and hives after a bee sting is textbook anaphylaxis. You need Epinephrine IM immediately. Always target the vastus lateralis (proximal, outer thigh) for the best absorption.'"
+        },
+        {
+            desc: "60 y/o M, Altered State St.", dispatch: "Respond Code 2 to State Street. Altered mental status.", quip: "State Street wanderers. Watch your pockets and check a sugar.",
+            vitals: { hr: "105", bp: "120/80", rr: "16", spo2: "97", gcs: "13", bgl: "38" }, flags: {}, injuries: {},
+            dialogue: { "S": "Get away from me!", "O": "I dunno...", "A": "None.", "P_provoke": "N/A", "M": "Insulin.", "Q": "N/A", "P": "Diabetic.", "R": "N/A", "L": "Nothing today.", "S_severe": "N/A", "E": "Sitting outside a cafe.", "T": "An hour." },
+            setup: () => { log("<strong>SCENE:</strong> Gary is sweating, confused, and aggressive on a bench.", "sys-info"); },
+            evalAction: function(a) {
+                let p = this;
+                if(a === 'PENMAN') { p.flags.penman = true; adjustMoney(10, "BSI on."); return; }
+                if(a === 'ABCs') { p.flags.abcs = true; log("Airway intact.", "sys-info"); return; }
+                if(a === 'Expose') { return; }
+                if(a === 'Neuro') { lpState.neuro = true; updateLP(); log("GCS 13.", "sys-bad"); return; }
+                if(a.startsWith('trauma_')) { return log("Clear.", "sys-info"); }
+                
+                if(a === 'place_glucose_on_mouth') { 
+                    if(!lpState.bgl) { adjustMoney(-20, "Miller: 'You didn't check a BGL first! You're guessing!'"); }
+                    p.flags.glucose = true; adjustMoney(30, "Oral Glucose given."); p.vitals.gcs="15"; updateLP(); appendToAutoNotes("Tx: 15g Oral Glucose.");
+                }
+            },
+            debrief: "'Altered mental status is low blood sugar until proven otherwise. As an EMT, check BGL with the Glucometer. Verify their gag reflex is intact, and give Oral Glucose between the cheek and gum.'"
+        },
+        {
+            desc: "20 y/o Male, Brad. C/C Toxic Ingestion.", dispatch: "Respond Code 2 to UCSB Dorms. 20-year-old male, ingested unknown pills.", quip: "Midterms at UCSB. Stress makes people do stupid things. Hope it isn't that Blue Ghost garbage.",
+            vitals: { hr: "90", bp: "110/70", rr: "16", spo2: "99", gcs: "15", bgl: "100" }, flags: {}, injuries: {},
+            dialogue: { "S": "My stomach hurts so bad.", "O": "20 mins ago.", "A": "None.", "P_provoke": "N/A", "M": "None.", "Q": "Aching.", "P": "Depression.", "R": "N/A", "L": "Handful of Tylenol.", "S_severe": "4/10", "E": "Wanted to sleep.", "T": "20 mins ago." },
+            setup: () => { log("<br><strong>SCENE:</strong> Brad is sitting up, alert, crying.", "sys-info"); },
+            evalAction: function(a) {
+                let p = this;
+                if(a === 'PENMAN') { p.flags.penman = true; adjustMoney(10, "BSI on."); return; }
+                if(a === 'ABCs') { p.flags.abcs = true; log("Airway intact, alert LOC."); return; }
+                if(a === 'Expose') { return; }
+                if(a === 'Neuro') { lpState.neuro = true; updateLP(); log("GCS 15.", "sys-good"); return; }
+                if(a.startsWith('trauma_')) { return log("Clear.", "sys-info"); }
+                
+                if(a === 'place_charcoal_on_mouth') { 
+                    p.flags.charcoal = true; adjustMoney(40, "Activated Charcoal 50g given PO. Patient drinks it unassisted to adsorb toxins."); appendToAutoNotes("Tx: 50g Activated Charcoal PO.");
+                }
+            },
+            debrief: "'Activated charcoal is great for recent pill ingestions, but they MUST have a patent airway and alert LOC (GCS 15). If they are altered, they will aspirate it into their lungs.'"
+        },
+        {
+            desc: "75 y/o Female, Mildred. C/C Pulmonary Edema.", dispatch: "Respond Code 3 to Nursing Home. 75-year-old female, severe respiratory distress.", quip: "The 'Shady Pines' express. They always wait until 2 AM to call.",
+            vitals: { hr: "110", bp: "180/100", rr: "32", spo2: "85", gcs: "15", bgl: "120" }, flags: {}, injuries: {},
+            dialogue: { "S": "Can't... breathe...", "O": "2 hours ago.", "A": "None.", "P_provoke": "Laying down.", "M": "Lasix.", "Q": "Drowning feeling.", "P": "Congestive Heart Failure.", "R": "N/A", "L": "Water.", "S_severe": "10/10", "E": "Woke up gasping.", "T": "2 hrs." },
+            setup: () => { log("<br><strong>SCENE:</strong> Mildred is sitting bolt upright, coughing pink frothy sputum. Rales in lung bases.", "sys-info"); },
+            evalAction: function(a) {
+                let p = this;
+                if(a === 'PENMAN') { p.flags.penman = true; adjustMoney(10, "BSI on."); return; }
+                if(a === 'ABCs') { p.flags.abcs = true; log("Airway intact, breathing very labored, tachypneic."); appendToAutoNotes("Findings: Rales, pink frothy sputum."); return; }
+                if(a === 'Expose') { p.flags.exposed = true; return; }
+                if(a === 'Neuro') { lpState.neuro = true; updateLP(); log("GCS 15.", "sys-good"); return; }
+                if(a.startsWith('trauma_')) { return log("Clear.", "sys-info"); }
+                
+                if(a === 'place_nrb_on_mouth') { adjustMoney(10, "NRB applied, but work of breathing remains high."); }
+                if(a === 'place_cpap_on_mouth') { 
+                    if(!p.flags.mv) { adjustMoney(-20, "Miller: 'You need a BP > 90 to apply CPAP!'"); }
+                    else { p.flags.cpap = true; adjustMoney(50, "CPAP applied at 15 L/min. Pushing fluid out of alveoli. WOB improving."); p.vitals.spo2="96"; p.vitals.rr="22"; updateLP(); appendToAutoNotes("Tx: CPAP at 15 L/min.");}
+                }
+            },
+            debrief: "'Pink frothy sputum and rales mean fluid is backing up into the lungs. CPAP pushes that fluid back out using continuous positive pressure, but only if they have the blood pressure to support it.'"
+        },
+        {
+            desc: "8 y/o Male, Asthma.", dispatch: "Respond Code 3. 8-year-old male, severe shortness of breath.", quip: "Kids... I hate running calls on kids. Don't mess this up, rookie.",
+            vitals: { hr: "140", bp: "100/60", rr: "36", spo2: "90", gcs: "15", bgl: "100" }, flags: {}, injuries: {},
+            dialogue: { "S": "(Wheezing) Chest... tight...", "O": "Playing outside...", "A": "None.", "P_provoke": "Running.", "M": "Albuterol inhaler.", "Q": "Tight.", "P": "Asthma.", "R": "N/A", "L": "Lunch.", "S_severe": "8/10", "E": "Playing soccer.", "T": "15 mins." },
+            setup: () => { log("<br><strong>SCENE:</strong> Boy is sitting in a tripod position, wheezing audibly.", "sys-info"); },
+            evalAction: function(a) {
+                let p = this;
+                if(a === 'PENMAN') { p.flags.penman = true; adjustMoney(10, "BSI on."); return; }
+                if(a === 'ABCs') { p.flags.abcs = true; log("Audible wheezing, retractions noted."); appendToAutoNotes("Findings: Expiratory wheezing."); return; }
+                if(a === 'Expose') { p.flags.exposed = true; return; }
+                if(a === 'Neuro') { lpState.neuro = true; updateLP(); log("GCS 15.", "sys-good"); return; }
+                
+                if(a === 'place_albuterol_on_mouth') { 
+                    p.flags.albuterol = true; adjustMoney(30, "Assisted with Albuterol MDI. Wheezing decreases."); p.vitals.rr="24"; p.vitals.spo2="96"; updateLP(); appendToAutoNotes("Tx: Albuterol MDI administered.");
+                }
+            },
+            debrief: "'Tripod positioning and expiratory wheezing are classic asthma signs. Always assist with their prescribed Albuterol inhaler early to reverse the bronchospasm.'"
+        },
+        {
+            desc: "35 y/o Male, Structure Fire.", dispatch: "Respond Code 3. Structure fire, victim pulled from building.", quip: "Working fire. Cops say it was a trap house cooking Blue Ghost. Blew sky high.",
+            vitals: { hr: "130", bp: "110/70", rr: "28", spo2: "88", gcs: "12", bgl: "110" }, flags: {}, 
+            injuries: { rarm: { desc: "Partial thickness burns", y: 50 }, chest: { desc: "Soot around mouth/nose", y: 20 } },
+            dialogue: { "S": "(Hoarse voice) It burns...", "O": "Just now.", "A": "None.", "P_provoke": "Fire.", "M": "None.", "Q": "Burning.", "P": "None.", "R": "Arm.", "L": "Unknown.", "S_severe": "10/10", "E": "House caught fire.", "T": "Unknown." },
+            setup: () => { log("<br><strong>SCENE:</strong> Patient coughing up soot. Right arm is red and blistered.", "sys-info"); },
+            evalAction: function(a) {
+                let p = this;
+                if(a === 'PENMAN') { p.flags.penman = true; adjustMoney(10, "BSI on. Fire Dept cleared scene."); return; }
+                if(a === 'ABCs') { p.flags.abcs = true; log("Hoarse voice, soot in airway. High risk of airway swelling!", "sys-bad"); appendToAutoNotes("Findings: Airway burns suspected."); return; }
+                if(a === 'Expose') { p.flags.exposed = true; log("Burns isolated to right arm.", "sys-info"); markInjury('rarm','🔥'); return; }
+                if(a === 'Neuro') { lpState.neuro = true; updateLP(); log("GCS 12.", "sys-bad"); return; }
+                if(a.startsWith('trauma_')) {
+                    let z = a.replace('trauma_','');
+                    if(p.injuries[z]) { adjustMoney(10, `Found: ${p.injuries[z].desc}`); p.flags['found_'+z]=true; } else log("Clear.", "sys-info");
+                    return;
+                }
+                
+                if(a === 'place_nrb_on_mouth') { p.flags.nrb = true; adjustMoney(20, "High flow O2 via NRB applied. Essential for suspected CO poisoning."); p.vitals.spo2="100"; updateLP(); appendToAutoNotes("Tx: NRB at 15 L/min.");}
+            },
+            debrief: "'Hoarseness and soot around the mouth mean airway burns. That airway will swell shut fast. Hit them with high-flow O2 via NRB immediately for Carbon Monoxide, and prep for rapid transport and advanced airway management.'"
+        },
+        {
+            desc: "70 y/o Female, Suspected CVA.", dispatch: "Respond Code 3. 70 y/o female, slurred speech.", quip: "Time is brain. Let's hope traffic on the 101 isn't blocked.",
+            vitals: { hr: "80", bp: "190/110", rr: "16", spo2: "95", gcs: "13", bgl: "105" }, flags: {}, injuries: {},
+            dialogue: { "S": "(Slurred) M-my arm... won't move...", "O": "One hour ago.", "A": "None.", "P_provoke": "N/A", "M": "Blood pressure meds.", "Q": "N/A", "P": "Hypertension.", "R": "N/A", "L": "Breakfast.", "S_severe": "N/A", "E": "Watching TV.", "T": "1 hour." },
+            setup: () => { log("<br><strong>SCENE:</strong> Patient sitting in chair. Noticeable left-sided facial droop.", "sys-info"); },
+            evalAction: function(a) {
+                let p = this;
+                if(a === 'PENMAN') { p.flags.penman = true; adjustMoney(10, "BSI on."); return; }
+                if(a === 'ABCs') { p.flags.abcs = true; log("Airway intact.", "sys-info"); return; }
+                if(a === 'Expose') { p.flags.exposed = true; return; }
+                if(a === 'Neuro') { lpState.neuro = true; updateLP(); log("GCS 13. Left arm flaccid. Facial droop.", "sys-bad"); appendToAutoNotes("Findings: L-sided deficit, facial droop."); return; }
+                if(a.startsWith('trauma_')) { return log("Clear.", "sys-info"); }
+            },
+            debrief: "'Slurred speech, facial droop, and unilateral weakness is a Stroke (CVA) until proven otherwise. BUT, you must always check a blood glucose level (BGL) because severe hypoglycemia can mimic a stroke perfectly.'"
+        },
+        {
+            desc: "30 y/o Male, Traumatic Amputation.", dispatch: "Respond Code 3. Industrial accident, severed limb.", quip: "Industrial accident. Bring the tourniquets, all of them. Coworker said he was tweaking on Blue Ghost.",
+            vitals: { hr: "145", bp: "80/50", rr: "28", spo2: "94", gcs: "13", bgl: "100" }, flags: {}, 
+            injuries: { larm: { desc: "Left arm amputated at the elbow. Massive arterial bleeding.", y: 70, isArterial: true } },
+            dialogue: { "S": "(Screaming in agony)", "O": "Just now!", "A": "None.", "P_provoke": "N/A", "M": "None.", "Q": "Sharp, tearing.", "P": "None.", "R": "Arm.", "L": "Coffee.", "S_severe": "10/10", "E": "Caught in the saw.", "T": "2 minutes ago." },
+            setup: () => { log("<br><strong>SCENE:</strong> Patient is on the floor of a warehouse. His left arm is gone below the elbow, spurting blood heavily.", "sys-bad"); },
+            evalAction: function(a) {
+                let p = this;
+                if(a === 'PENMAN') { p.flags.penman = true; adjustMoney(10, "BSI on. Machine is off."); return; }
+                if(a === 'ABCs') { p.flags.abcs = true; log("Airway open. Massive arterial hemorrhage on Left Arm.", "sys-bad"); appendToAutoNotes("Findings: Arterial bleed L-Arm."); return; }
+                if(a === 'Expose') { p.flags.exposed = true; markInjury('larm','🩸'); return; }
+                if(a === 'Neuro') { lpState.neuro = true; updateLP(); log("GCS 13. Pale, diaphoretic, altered from shock.", "sys-bad"); return; }
+                if(a.startsWith('trauma_')) {
+                    let z = a.replace('trauma_','');
+                    if(p.injuries[z]) { adjustMoney(10, `Found: ${p.injuries[z].desc}`); p.flags['found_'+z]=true; } else log("Clear.", "sys-info");
+                    return;
+                }
+            },
+            debrief: "'On an amputation, skip the dressing and go straight to the Tourniquet. Place it 2-3 inches proximal to the stump and tighten until the bleeding stops completely.'"
+        },
+        {
+            desc: "25 y/o Female, Active Seizure.", dispatch: "Respond Code 3. 25 y/o female, active convulsions.", quip: "Post-ictal or active? Just don't let them bite your fingers off.",
+            vitals: { hr: "130", bp: "140/90", rr: "8", spo2: "85", gcs: "6", bgl: "95" }, flags: {}, injuries: {},
+            dialogue: { "S": "(Unresponsive, groaning)", "O": "Friend: '5 minutes ago.'", "A": "Friend: 'None.'", "P_provoke": "N/A", "M": "Friend: 'Keppra, but she missed a dose.'", "Q": "N/A", "P": "Friend: 'Epilepsy.'", "R": "N/A", "L": "Friend: 'Dinner last night.'", "S_severe": "N/A", "E": "Friend: 'Just watching a movie.'", "T": "Friend: 'About 5 minutes total.'" },
+            setup: () => { log("<br><strong>SCENE:</strong> Patient is actively seizing on the floor. Saliva pooling in mouth.", "sys-info"); },
+            evalAction: function(a) {
+                let p = this;
+                if(a === 'PENMAN') { p.flags.penman = true; adjustMoney(10, "BSI on. Cleared furniture away from patient."); return; }
+                if(a === 'ABCs') { p.flags.abcs = true; log("Airway compromised by secretions. Breathing shallow/irregular.", "sys-bad"); appendToAutoNotes("Findings: Actively seizing, airway compromised."); return; }
+                if(a === 'Expose') { p.flags.exposed = true; return; }
+                if(a === 'Neuro') { lpState.neuro = true; updateLP(); log("GCS 6.", "sys-bad"); return; }
+                if(a.startsWith('trauma_')) { return log("Clear.", "sys-info"); }
+                
+                if(a === 'place_suction_on_mouth') { p.flags.suction = true; adjustMoney(20, "Airway cleared of secretions."); appendToAutoNotes("Tx: Suctioned airway.");}
+                if(a === 'place_npa_on_nose') { p.flags.npa = true; adjustMoney(20, "NPA inserted. (OPA contraindicated due to clenched jaw/gag)."); appendToAutoNotes("Tx: NPA placed.");}
+            },
+            debrief: "'Never put an OPA in an actively seizing patient; their jaw is clenched and they still have a gag reflex. Protect them from injury, suction the airway, and place an NPA (Nasal airway) instead.'"
+        },
+        {
+            desc: "55 y/o Male, Hypothermia.", dispatch: "Respond Code 2. Homeless male, altered, sitting in the rain.", quip: "Welcome to the atmospheric river. Let's get them out of the rain.",
+            vitals: { hr: "48", bp: "90/60", rr: "10", spo2: "90", gcs: "12", bgl: "85" }, flags: {}, injuries: {},
+            dialogue: { "S": "(Shivering uncontrollably) C-c-cold...", "O": "All night...", "A": "None.", "P_provoke": "Rain.", "M": "None.", "Q": "N/A", "P": "Unknown.", "R": "N/A", "L": "Yesterday.", "S_severe": "N/A", "E": "Slept outside in the storm.", "T": "12 hours." },
+            setup: () => { log("<br><strong>SCENE:</strong> Patient is soaking wet, shivering violently, and confused.", "sys-info"); },
+            evalAction: function(a) {
+                let p = this;
+                if(a === 'PENMAN') { p.flags.penman = true; adjustMoney(10, "BSI on."); return; }
+                if(a === 'ABCs') { p.flags.abcs = true; log("Airway open. Breathing slow. Radial pulse is weak and bradycardic.", "sys-bad"); appendToAutoNotes("Findings: Bradycardic, shivering, wet."); return; }
+                if(a === 'Expose') { p.flags.exposed = true; adjustMoney(10, "Wet clothing removed."); appendToAutoNotes("Tx: Wet clothing removed."); return; }
+                if(a === 'Neuro') { lpState.neuro = true; updateLP(); log("GCS 12. Confused and lethargic.", "sys-bad"); return; }
+                if(a.startsWith('trauma_')) { return log("Clear.", "sys-info"); }
+                
+                if(a === 'place_nc_on_nose') { p.flags.nc = true; adjustMoney(10, "O2 via NC applied."); }
+            },
+            debrief: "'The first treatment for hypothermia is always removing the wet clothing. You cannot warm a patient who is covered in freezing water. Remove the clothes, wrap in dry blankets, and handle them gently to avoid inducing V-Fib.'"
+        }
+    ];
+
+    function loadPatient() {
+        let p = patients[ptIndex];
+        if(p.dispatch.includes("Code 3")) playSiren();
+        else playSound('radio');
+        
+        lpState = { leads: false, spo2: false, nibp: false, neuro: false, bgl: false }; updateLP();
+        patients[ptIndex].flags = {}; patients[ptIndex].setupOverride = null;
+        document.querySelectorAll('.injury-marker').forEach(el => el.remove());
+        document.querySelectorAll('.css-zone').forEach(z => z.classList.remove('assessed'));
+        
+        autoNoteData = ["--- NEW CALL ---", "Dispatch: " + patients[ptIndex].dispatch];
+        if(noteMode === 'auto') syncAutoNotes();
+        
+        setTimeout(() => { 
+            log(`<strong>📻 DISPATCH:</strong> "${patients[ptIndex].dispatch}"`, "sys-dispatch"); 
+            if(patients[ptIndex].quip) setTimeout(() => log(`<strong>Miller:</strong> "${patients[ptIndex].quip}"`, "sys-partner"), 1000);
+            patients[ptIndex].setup(); 
+            showAssessment(); 
+        }, 3000);
+    }
+</script>
+</body>
+</html>
